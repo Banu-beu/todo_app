@@ -1,4 +1,4 @@
-const Todo = require('../model/Todo');
+const Todo = require('../model/todo');
 
 const todoSingleData = async (req, res) => {
   const todo = await Todo.findById(req.params.id);
