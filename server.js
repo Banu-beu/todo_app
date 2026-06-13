@@ -15,7 +15,7 @@ const todoRouter = require('./router/todo');
 app.use('/todo', todoRouter);
 
 app.get('/', (req, res) => {
-    res.render('pages/index'); 
+    res.render('index'); 
 });
 
 connectdb();
