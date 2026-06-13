@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Todo App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-indigo-50 font-sans min-h-screen flex items-center justify-center">
+
+    <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md mx-auto my-10 border border-slate-100">
+        <h1 class="text-3xl font-extrabold text-slate-800 mb-6 text-center tracking-tight">
+            Todo <span class="text-indigo-600">Siyahısı</span>
+        </h1>
+
+        <div class="flex gap-2 mb-6">
+            <input type="text" id="todoInput" placeholder="Yeni tapşırıq yazın..." 
+                class="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-slate-700">
+            <button onclick="addTodo()" 
+                class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-5 py-2.5 rounded-xl transition-all shadow-md shadow-indigo-100 active:scale-95">
+                Əlavə et
+            </button>
+        </div>
+
+        <div id="loading" class="text-center text-slate-400 py-4 hidden">Yüklənir...</div>
+
+        <ul id="todoList" class="space-y-3"></ul>
+    </div>
+
+    <script>
+        const todoInput = document.getElementById('todoInput');
+        const todoList = document.getElementById('todoList');
+        const loading = document.getElementById('loading');
+
+        // 1. READ - Bütün Todo-ları gətirmək
+        async function fetchTodos() {
+            loading.classList.remove('hidden');
+            todoList.innerHTML = '';
+            
+            try {
+                const res = await fetch('/todo');
+                const result = await res.json();
+                loading.classList.add('hidden');
+
+                const todos = result.data || result;
+
+                if (!todos || todos.length === 0) {
+                    todoList.innerHTML = `<p class="text-center text-slate-400 py-4">Hələ ki, heç bir tapşırıq yoxdur... 🚀</p>`;
+                    return;
+                }
+
+                todos.forEach(todo => {
+                    const currentTaskText = todo.task || todo.todo || "Başlıqsız Tapşırıq";
+                    const li = document.createElement('li');
+                    li.className = "flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 hover:shadow-sm transition-shadow";
+                    
+                    li.innerHTML = `
+                        <div class="flex items-center gap-3 flex-1 mr-2">
+                            <button onclick="toggleTodo('${todo._id}', ${todo.completed || false})" class="flex items-center focus:outline-none">
+                                ${todo.completed 
+                                    ? `<div class="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center text-white text-xs font-bold shadow-sm">✓</div>` 
+                                    : `<div class="w-6 h-6 rounded-full border-2 border-slate-300 hover:border-indigo-500 transition-colors"></div>`
+                                }
+                            </button>
+                            <span class="text-slate-700 font-medium ${todo.completed ? 'line-through text-slate-400' : ''}">
+                                ${currentTaskText}
+                            </span>
+                        </div>
+                        
+                        <div class="flex gap-2 items-center">
+                            <button onclick="editTodo('${todo._id}', '${currentTaskText}')" class="text-indigo-500 hover:text-indigo-700 font-medium text-sm transition-colors px-1">
+                                Düzəliş
+                            </button>
+                            <button onclick="deleteTodo('${todo._id}')" class="text-slate-400 hover:text-red-500 font-medium text-sm transition-colors px-1">
+                                Sil
+                            </button>
+                        </div>
+                    `;
+                    todoList.appendChild(li);
+                });
+            } catch (err) {
+                loading.classList.add('hidden');
+                todoList.innerHTML = `<p class="text-center text-red-500 py-4">Məlumatları yükləyərkən xəta baş verdi.</p>`;
+            }
+        }
+
+        // 2. CREATE - Yeni Todo əlavə etmək
+        async function addTodo() {
+            const taskText = todoInput.value.trim();
+            if (!taskText) return;
+
+            try {
+                const res = await fetch('/todo', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ task: taskText }) 
+                });
+
+                if (res.ok) {
+                    todoInput.value = '';
+                    fetchTodos();
+                }
+            } catch (err) {
+                console.error("Əlavə edilərkən xəta:", err);
+            }
+        }
+
+        // 3. UPDATE (Mətn Düzəlişi) - Birbaşa ekranda prompt ilə ad dəyişmək
+        async function editTodo(id, oldText) {
+            // Brauzerin öz daxili pəncərəsi ilə istifadəçidən yeni mətni soruşuruq
+            const newText = prompt("Tapşırığı yeniləyin:", oldText);
+            
+            // Əgər istifadəçi "Cancel" basarsa və ya boş buraxarsa heç nə etmə
+            if (newText === null || newText.trim() === "") return;
+
+            try {
+                const res = await fetch(`/todo/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ task: newText.trim() }) // Yenilənmiş mətni göndəririk
+                });
+
+                if (res.ok) {
+                    fetchTodos(); // Siyahını təzələ
+                }
+            } catch (err) {
+                console.error("Yenilənərkən xəta:", err);
+            }
+        }
+
+        // 4. UPDATE (Status) - Tamamlandı / Tamamlanmadı toggle
+        async function toggleTodo(id, currentStatus) {
+            try {
+                const res = await fetch(`/todo/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ completed: !currentStatus })
+                });
+
+                if (res.ok) fetchTodos();
+            } catch (err) {
+                console.error("Yenilənərkən xəta:", err);
+            }
+        }
+
+        // 5. DELETE - Silmək
+        async function deleteTodo(id) {
+            if (!confirm('Bu tapşırığı silmək istədiyinizdən əminsiniz?')) return;
+
+            try {
+                const res = await fetch(`/todo/${id}`, { method: 'DELETE' });
+                if (res.ok) fetchTodos();
+            } catch (err) {
+                console.error("Silinərkən xəta:", err);
+            }
+        }
+
+        todoInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') addTodo();
+        });
+
+        window.onload = fetchTodos;
+    </script>
+</body>
+</html>
