@@ -1,6 +1,6 @@
 const express = require('express');
 const app = express();
-const connectdb = require('./config/connectDB');
+const connectdb = require('./config/connectdb');
 const cors = require('cors');
 
 app.set('view engine', 'ejs');
